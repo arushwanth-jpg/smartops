@@ -1,4 +1,4 @@
-from rest_framework import serializers
+from rest_framework import serializers  # pyright: ignore[reportMissingImports]
 
 from .models import (
     Attachment,
@@ -163,3 +163,11 @@ class TicketSerializer(serializers.ModelSerializer):
         )
 
         return ticket
+    
+class TicketAssignSerializer(serializers.Serializer):
+    agent_id = serializers.IntegerField()
+    
+class TicketTransitionSerializer(serializers.Serializer):
+    status = serializers.ChoiceField(
+        choices=Ticket.Status.choices
+    )
