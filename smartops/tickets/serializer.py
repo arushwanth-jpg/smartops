@@ -9,6 +9,8 @@ from .models import (
     TicketEvent,
 )
 
+
+
 class CategorySerializer(serializers.ModelSerializer):
 
     class Meta:
