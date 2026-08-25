@@ -7,7 +7,13 @@ from django.utils import timezone
 
 from users.models import User
 
-from .models import Category, Comment, Tag, Ticket, TicketEvent
+from .models import (
+    Category,
+    Comment,
+    Tag,
+    Ticket,
+    TicketEvent,
+)
 from .permissions import IsAdminOrAgent
 from .serializer import (
     TicketSerializer,
@@ -16,6 +22,7 @@ from .serializer import (
     TagSerializer,
     TicketAssignSerializer,
     TicketTransitionSerializer,
+    AttachmentSerializer,
 )
 
 
@@ -27,7 +34,6 @@ class TicketViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
 
-        # ADMIN can see all tickets
         if user.role == "ADMIN":
             return Ticket.objects.all().select_related(
                 "requester",
@@ -35,8 +41,7 @@ class TicketViewSet(viewsets.ModelViewSet):
                 "category",
             )
 
-        # AGENT can see assigned tickets
-        # and tickets from their team
+
         if user.role == "AGENT":
             return Ticket.objects.filter(
                 Q(assigned_agent=user)
@@ -47,7 +52,6 @@ class TicketViewSet(viewsets.ModelViewSet):
                 "category",
             )
 
-        # Normal users can only see their own tickets
         return Ticket.objects.filter(
             requester=user
         ).select_related(
@@ -56,9 +60,6 @@ class TicketViewSet(viewsets.ModelViewSet):
             "category",
         )
 
-    # ==========================================================
-    # ASSIGN TICKET
-    # ==========================================================
 
     @action(
         detail=True,
@@ -66,9 +67,6 @@ class TicketViewSet(viewsets.ModelViewSet):
         permission_classes=[IsAdminOrAgent],
     )
     def assign(self, request, pk=None):
-        """
-        Assign a ticket to an agent.
-        """
 
         ticket = self.get_object()
 
@@ -82,12 +80,13 @@ class TicketViewSet(viewsets.ModelViewSet):
 
         agent_id = serializer.validated_data["agent_id"]
 
-        # Check whether the user exists and is an agent
+        # Find agent
         try:
             agent = User.objects.get(
                 id=agent_id,
                 role="AGENT",
             )
+
         except User.DoesNotExist:
             return Response(
                 {
@@ -96,10 +95,9 @@ class TicketViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        # Store previous agent
+        
         old_agent = ticket.assigned_agent
 
-        # Assign new agent
         ticket.assigned_agent = agent
 
         ticket.save(
@@ -109,7 +107,6 @@ class TicketViewSet(viewsets.ModelViewSet):
             ]
         )
 
-        # Create audit event
         TicketEvent.objects.create(
             ticket=ticket,
             actor=request.user,
@@ -129,14 +126,12 @@ class TicketViewSet(viewsets.ModelViewSet):
         return Response(
             TicketSerializer(
                 ticket,
-                context={"request": request},
+                context={
+                    "request": request
+                },
             ).data,
             status=status.HTTP_200_OK,
         )
-
-    # ==========================================================
-    # STATUS TRANSITION
-    # ==========================================================
 
     @action(
         detail=True,
@@ -144,19 +139,6 @@ class TicketViewSet(viewsets.ModelViewSet):
         permission_classes=[IsAdminOrAgent],
     )
     def transition(self, request, pk=None):
-        """
-        Change the status of a ticket.
-
-        Allowed flow:
-
-        OPEN
-          ↓
-        IN_PROGRESS
-          ↓
-        RESOLVED
-          ↓
-        CLOSED
-        """
 
         ticket = self.get_object()
 
@@ -170,11 +152,8 @@ class TicketViewSet(viewsets.ModelViewSet):
 
         new_status = serializer.validated_data["status"]
 
-        # ------------------------------------------------------
-        # Allowed status transitions
-        # ------------------------------------------------------
-
         allowed_transitions = {
+
             Ticket.Status.OPEN: [
                 Ticket.Status.IN_PROGRESS
             ],
@@ -192,10 +171,6 @@ class TicketViewSet(viewsets.ModelViewSet):
 
         current_status = ticket.status
 
-        # ------------------------------------------------------
-        # Validate transition
-        # ------------------------------------------------------
-
         if new_status not in allowed_transitions.get(
             current_status,
             []
@@ -210,32 +185,16 @@ class TicketViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # ------------------------------------------------------
-        # Update status
-        # ------------------------------------------------------
-
+      
         ticket.status = new_status
-
-        # ------------------------------------------------------
-        # Set resolved timestamp
-        # ------------------------------------------------------
 
         if new_status == Ticket.Status.RESOLVED:
             ticket.resolved_at = timezone.now()
 
-        # ------------------------------------------------------
-        # Set closed timestamp
-        # ------------------------------------------------------
-
         if new_status == Ticket.Status.CLOSED:
             ticket.closed_at = timezone.now()
 
-        # Save ticket
         ticket.save()
-
-        # ------------------------------------------------------
-        # Create audit event
-        # ------------------------------------------------------
 
         TicketEvent.objects.create(
             ticket=ticket,
@@ -249,16 +208,100 @@ class TicketViewSet(viewsets.ModelViewSet):
             },
         )
 
-        # ------------------------------------------------------
-        # Return updated ticket
-        # ------------------------------------------------------
-
         return Response(
             TicketSerializer(
                 ticket,
-                context={"request": request},
+                context={
+                    "request": request
+                },
             ).data,
             status=status.HTTP_200_OK,
+        )
+        
+    @action(
+        detail=True,
+        methods=["get", "post"],
+    )
+    def comments(self, request, pk=None):
+
+        ticket = self.get_object()
+
+        if request.method == "GET":
+
+            comments = ticket.comments.all()
+
+            serializer = CommentSerializer(
+                comments,
+                many=True,
+            )
+
+            return Response(
+                serializer.data,
+                status=status.HTTP_200_OK,
+            )
+
+        serializer = CommentSerializer(
+            data=request.data
+        )
+
+        serializer.is_valid(
+            raise_exception=True
+        )
+
+        comment = serializer.save(
+            ticket=ticket,
+            author=request.user,
+        )
+
+     
+        TicketEvent.objects.create(
+            ticket=ticket,
+            actor=request.user,
+            event_type="COMMENT_ADDED",
+            new_value=str(comment.id),
+        )
+
+        return Response(
+            CommentSerializer(comment).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+    @action(
+        detail=True,
+        methods=["post"],
+    )
+    def attachments(self, request, pk=None):
+
+        ticket = self.get_object()
+
+       
+        serializer = AttachmentSerializer(
+            data=request.data
+        )
+
+        serializer.is_valid(
+            raise_exception=True
+        )
+
+        attachment = serializer.save(
+            ticket=ticket,
+            uploaded_by=request.user,
+        )
+
+     
+        TicketEvent.objects.create(
+            ticket=ticket,
+            actor=request.user,
+            event_type="ATTACHMENT_ADDED",
+            new_value=str(attachment.id),
+        )
+
+        return Response(
+            AttachmentSerializer(
+                attachment
+            ).data,
+            status=status.HTTP_201_CREATED,
         )
 
 
@@ -268,11 +311,13 @@ class CommentViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+
         return Comment.objects.filter(
             ticket_id=self.kwargs["ticket_pk"]
         )
 
     def perform_create(self, serializer):
+
         serializer.save(
             author=self.request.user
         )
@@ -281,14 +326,20 @@ class CommentViewSet(viewsets.ModelViewSet):
 class CategoryViewSet(viewsets.ModelViewSet):
 
     queryset = Category.objects.all()
+
     serializer_class = CategorySerializer
-    permission_classes = [IsAuthenticated]
+
+    permission_classes = [
+        IsAuthenticated
+    ]
 
 
 class TagViewSet(viewsets.ModelViewSet):
 
     queryset = Tag.objects.all()
+
     serializer_class = TagSerializer
-    permission_classes = [IsAuthenticated]
-    
-    
+
+    permission_classes = [
+        IsAuthenticated
+    ]
