@@ -130,11 +130,9 @@ STATIC_URL = 'static/'
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
 
-MAILERS = {
-    'default': {
-        'BACKEND': 'django.core.mail.backends.console.EmailBackend',
-    },
-}
+EMAIL_BACKEND = (
+    "django.core.mail.backends.console.EmailBackend"
+)
 
 AUTH_USER_MODEL = 'users.User'
 
@@ -163,3 +161,5 @@ SIMPLE_JWT = {
 
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"

@@ -2,8 +2,11 @@ from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.filters import SearchFilter, OrderingFilter
+
 from django.db.models import Q
 from django.utils import timezone
+from django_filters.rest_framework import DjangoFilterBackend
 
 from users.models import User
 
@@ -32,6 +35,34 @@ class TicketViewSet(viewsets.ModelViewSet):
 
     serializer_class = TicketSerializer
     permission_classes = [IsAuthenticated]
+
+    filter_backends = [
+        DjangoFilterBackend,
+        SearchFilter,
+        OrderingFilter,
+    ]
+
+    filterset_fields = [
+        "status",
+        "priority",
+        "category",
+        "assigned_agent",
+    ]
+
+    search_fields = [
+        "title",
+        "description",
+    ]
+
+    ordering_fields = [
+        "created_at",
+        "updated_at",
+        "priority",
+    ]
+
+    ordering = [
+        "-created_at"
+    ]
 
     def get_queryset(self):
 
