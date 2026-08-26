@@ -18,7 +18,10 @@ from .models import (
     TicketEvent,
 )
 
-from .permissions import IsAdminOrAgent
+from .permissions import (
+    IsAdmin,
+    IsAdminOrAgent,
+)
 
 from .serializer import (
     TicketSerializer,
@@ -76,9 +79,14 @@ class TicketViewSet(viewsets.ModelViewSet):
             )
 
         if user.role == "AGENT":
+
+            query = Q(assigned_agent=user)
+
+            if user.team:
+                query |= Q(requester__team=user.team)
+
             return Ticket.objects.filter(
-                Q(assigned_agent=user)
-                | Q(requester__team=user.team)
+                query
             ).select_related(
                 "requester",
                 "assigned_agent",
@@ -253,7 +261,12 @@ class TicketViewSet(viewsets.ModelViewSet):
 
         if request.method == "GET":
 
-            comments = ticket.comments.all()
+            if request.user.role == "REQUESTER":
+                comments = ticket.comments.filter(
+                    comment_type=Comment.CommentType.PUBLIC
+                )
+            else:
+                comments = ticket.comments.all()
 
             serializer = CommentSerializer(
                 comments,
@@ -273,22 +286,26 @@ class TicketViewSet(viewsets.ModelViewSet):
             raise_exception=True
         )
 
+        if (
+            request.user.role == "REQUESTER"
+            and serializer.validated_data.get(
+                "comment_type"
+            ) == Comment.CommentType.INTERNAL
+        ):
+            return Response(
+                {
+                    "detail": (
+                        "Requesters cannot create "
+                        "internal comments."
+                    )
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         comment = serializer.save(
             ticket=ticket,
             author=request.user,
         )
-
-        if (
-            request.user.role == "AGENT"
-            and ticket.first_response_at is None
-        ):
-            ticket.first_response_at = timezone.now()
-
-            ticket.save(
-                update_fields=[
-                    "first_response_at"
-                ]
-            )
 
         TicketEvent.objects.create(
             ticket=ticket,
@@ -350,33 +367,15 @@ class TicketViewSet(viewsets.ModelViewSet):
         )
 
 
-class CommentViewSet(viewsets.ModelViewSet):
-
-    serializer_class = CommentSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-
-        return Comment.objects.filter(
-            ticket_id=self.kwargs["ticket_pk"]
-        )
-
-    def perform_create(self, serializer):
-
-        serializer.save(
-            author=self.request.user
-        )
-
-
 class CategoryViewSet(viewsets.ModelViewSet):
 
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdmin]
 
 
 class TagViewSet(viewsets.ModelViewSet):
 
     queryset = Tag.objects.all()
     serializer_class = TagSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdmin]
