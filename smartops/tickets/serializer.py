@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from .services import calculate_sla_due_at
 
 from .models import (
     Attachment,
@@ -131,58 +132,44 @@ class TicketSerializer(serializers.ModelSerializer):
     )
 
     class Meta:
+
         model = Ticket
 
         fields = [
             "id",
             "title",
             "description",
-
             "requester",
             "requester_name",
-
             "assigned_agent",
             "assigned_agent_name",
-
             "category",
             "category_name",
-
             "tags",
             "tags_data",
-
             "priority",
             "status",
-
             "sla_due_at",
             "first_response_at",
-
             "resolved_at",
             "closed_at",
-
             "created_at",
             "updated_at",
         ]
 
         read_only_fields = [
             "id",
-
             "requester",
             "requester_name",
-
             "assigned_agent",
-
             "assigned_agent_name",
             "category_name",
             "tags_data",
-
             "status",
-
             "sla_due_at",
             "first_response_at",
-
             "resolved_at",
             "closed_at",
-
             "created_at",
             "updated_at",
         ]
@@ -196,8 +183,16 @@ class TicketSerializer(serializers.ModelSerializer):
             [],
         )
 
+        priority = validated_data.get(
+            "priority",
+            Ticket.Priority.MEDIUM,
+        )
+
         ticket = Ticket.objects.create(
             requester=request.user,
+            sla_due_at=calculate_sla_due_at(
+                priority
+            ),
             **validated_data,
         )
 
@@ -211,11 +206,15 @@ class TicketSerializer(serializers.ModelSerializer):
             new_value={
                 "status": ticket.status,
                 "priority": ticket.priority,
+                "sla_due_at": (
+                    ticket.sla_due_at.isoformat()
+                    if ticket.sla_due_at
+                    else None
+                ),
             },
         )
 
         return ticket
-
 
 class TicketAssignSerializer(serializers.Serializer):
 
