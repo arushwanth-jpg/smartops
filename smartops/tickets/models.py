@@ -1,17 +1,29 @@
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
 
 
 class Category(models.Model):
-    name = models.CharField(max_length=100, unique=True)
-    description = models.TextField(blank=True)
+
+    name = models.CharField(
+        max_length=100,
+        unique=True,
+    )
+
+    description = models.TextField(
+        blank=True
+    )
 
     def __str__(self):
         return self.name
 
 
 class Tag(models.Model):
-    name = models.CharField(max_length=50, unique=True)
+
+    name = models.CharField(
+        max_length=50,
+        unique=True,
+    )
 
     def __str__(self):
         return self.name
@@ -20,18 +32,43 @@ class Tag(models.Model):
 class Ticket(models.Model):
 
     class Status(models.TextChoices):
+
         OPEN = "OPEN", "Open"
-        IN_PROGRESS = "IN_PROGRESS", "In Progress"
-        RESOLVED = "RESOLVED", "Resolved"
-        CLOSED = "CLOSED", "Closed"
+
+        IN_PROGRESS = (
+            "IN_PROGRESS",
+            "In Progress",
+        )
+
+        RESOLVED = (
+            "RESOLVED",
+            "Resolved",
+        )
+
+        CLOSED = (
+            "CLOSED",
+            "Closed",
+        )
 
     class Priority(models.TextChoices):
-        LOW = "LOW", "Low"
-        MEDIUM = "MEDIUM", "Medium"
-        HIGH = "HIGH", "High"
-        CRITICAL = "CRITICAL", "Critical"
 
-    title = models.CharField(max_length=255)
+        LOW = "LOW", "Low"
+
+        MEDIUM = (
+            "MEDIUM",
+            "Medium",
+        )
+
+        HIGH = "HIGH", "High"
+
+        CRITICAL = (
+            "CRITICAL",
+            "Critical",
+        )
+
+    title = models.CharField(
+        max_length=255
+    )
 
     description = models.TextField()
 
@@ -103,14 +140,41 @@ class Ticket(models.Model):
         auto_now=True,
     )
 
+    @property
+    def is_sla_breached(self):
+
+        if not self.sla_due_at:
+            return False
+
+        if self.resolved_at:
+            return (
+                self.resolved_at
+                > self.sla_due_at
+            )
+
+        return timezone.now() > self.sla_due_at
+
     def __str__(self):
-        return f"#{self.id} - {self.title}"
-    
+
+        return (
+            f"#{self.id} - "
+            f"{self.title}"
+        )
+
+
 class Comment(models.Model):
 
     class CommentType(models.TextChoices):
-        PUBLIC = "PUBLIC", "Public"
-        INTERNAL = "INTERNAL", "Internal"
+
+        PUBLIC = (
+            "PUBLIC",
+            "Public",
+        )
+
+        INTERNAL = (
+            "INTERNAL",
+            "Internal",
+        )
 
     ticket = models.ForeignKey(
         Ticket,
@@ -141,8 +205,13 @@ class Comment(models.Model):
     )
 
     def __str__(self):
-        return f"Comment #{self.id} - Ticket #{self.ticket.id}"
-    
+
+        return (
+            f"Comment #{self.id} - "
+            f"Ticket #{self.ticket.id}"
+        )
+
+
 class Attachment(models.Model):
 
     ticket = models.ForeignKey(
@@ -176,8 +245,10 @@ class Attachment(models.Model):
     )
 
     def __str__(self):
+
         return self.original_filename
-    
+
+
 class TicketEvent(models.Model):
 
     ticket = models.ForeignKey(
@@ -213,7 +284,14 @@ class TicketEvent(models.Model):
     )
 
     class Meta:
-        ordering = ["-created_at"]
+
+        ordering = [
+            "-created_at"
+        ]
 
     def __str__(self):
-        return f"{self.action} - Ticket #{self.ticket.id}"
+
+        return (
+            f"{self.action} - "
+            f"Ticket #{self.ticket.id}"
+        )

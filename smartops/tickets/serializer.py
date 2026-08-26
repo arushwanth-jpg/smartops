@@ -1,4 +1,5 @@
 from rest_framework import serializers
+
 from .services import calculate_sla_due_at
 
 from .models import (
@@ -14,6 +15,7 @@ from .models import (
 class CategorySerializer(serializers.ModelSerializer):
 
     class Meta:
+
         model = Category
         fields = "__all__"
 
@@ -21,6 +23,7 @@ class CategorySerializer(serializers.ModelSerializer):
 class TagSerializer(serializers.ModelSerializer):
 
     class Meta:
+
         model = Tag
         fields = "__all__"
 
@@ -33,6 +36,7 @@ class CommentSerializer(serializers.ModelSerializer):
     )
 
     class Meta:
+
         model = Comment
 
         fields = [
@@ -59,6 +63,7 @@ class CommentSerializer(serializers.ModelSerializer):
 class AttachmentSerializer(serializers.ModelSerializer):
 
     class Meta:
+
         model = Attachment
 
         fields = [
@@ -87,6 +92,7 @@ class AttachmentSerializer(serializers.ModelSerializer):
         max_size = 10 * 1024 * 1024
 
         if value.size > max_size:
+
             raise serializers.ValidationError(
                 "File size cannot exceed 10 MB."
             )
@@ -99,6 +105,7 @@ class AttachmentSerializer(serializers.ModelSerializer):
         ]
 
         if value.content_type not in allowed_types:
+
             raise serializers.ValidationError(
                 "Unsupported file type."
             )
@@ -131,6 +138,10 @@ class TicketSerializer(serializers.ModelSerializer):
         read_only=True,
     )
 
+    is_sla_breached = serializers.BooleanField(
+        read_only=True
+    )
+
     class Meta:
 
         model = Ticket
@@ -139,44 +150,63 @@ class TicketSerializer(serializers.ModelSerializer):
             "id",
             "title",
             "description",
+
             "requester",
             "requester_name",
+
             "assigned_agent",
             "assigned_agent_name",
+
             "category",
             "category_name",
+
             "tags",
             "tags_data",
+
             "priority",
             "status",
+
             "sla_due_at",
+            "is_sla_breached",
             "first_response_at",
+
             "resolved_at",
             "closed_at",
+
             "created_at",
             "updated_at",
         ]
 
         read_only_fields = [
             "id",
+
             "requester",
             "requester_name",
+
             "assigned_agent",
             "assigned_agent_name",
+
             "category_name",
             "tags_data",
+
             "status",
+
             "sla_due_at",
+            "is_sla_breached",
             "first_response_at",
+
             "resolved_at",
             "closed_at",
+
             "created_at",
             "updated_at",
         ]
 
     def create(self, validated_data):
 
-        request = self.context["request"]
+        request = self.context[
+            "request"
+        ]
 
         tags = validated_data.pop(
             "tags",
@@ -216,12 +246,17 @@ class TicketSerializer(serializers.ModelSerializer):
 
         return ticket
 
-class TicketAssignSerializer(serializers.Serializer):
+
+class TicketAssignSerializer(
+    serializers.Serializer
+):
 
     agent_id = serializers.IntegerField()
 
 
-class TicketTransitionSerializer(serializers.Serializer):
+class TicketTransitionSerializer(
+    serializers.Serializer
+):
 
     status = serializers.ChoiceField(
         choices=Ticket.Status.choices

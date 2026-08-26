@@ -278,6 +278,18 @@ class TicketViewSet(viewsets.ModelViewSet):
             author=request.user,
         )
 
+        if (
+            request.user.role == "AGENT"
+            and ticket.first_response_at is None
+        ):
+            ticket.first_response_at = timezone.now()
+
+            ticket.save(
+                update_fields=[
+                    "first_response_at"
+                ]
+            )
+
         TicketEvent.objects.create(
             ticket=ticket,
             actor=request.user,
