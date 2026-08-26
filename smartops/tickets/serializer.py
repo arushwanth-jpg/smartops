@@ -1,4 +1,4 @@
-from rest_framework import serializers  # pyright: ignore[reportMissingImports]
+from rest_framework import serializers
 
 from .models import (
     Attachment,
@@ -8,7 +8,6 @@ from .models import (
     Ticket,
     TicketEvent,
 )
-
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -48,6 +47,7 @@ class CommentSerializer(serializers.ModelSerializer):
 
         read_only_fields = [
             "id",
+            "ticket",
             "author",
             "author_name",
             "created_at",
@@ -73,11 +73,36 @@ class AttachmentSerializer(serializers.ModelSerializer):
 
         read_only_fields = [
             "id",
+            "ticket",
             "uploaded_by",
+            "original_filename",
             "file_size",
             "content_type",
             "uploaded_at",
         ]
+
+    def validate_file(self, value):
+
+        max_size = 10 * 1024 * 1024
+
+        if value.size > max_size:
+            raise serializers.ValidationError(
+                "File size cannot exceed 10 MB."
+            )
+
+        allowed_types = [
+            "image/jpeg",
+            "image/png",
+            "application/pdf",
+            "text/plain",
+        ]
+
+        if value.content_type not in allowed_types:
+            raise serializers.ValidationError(
+                "Unsupported file type."
+            )
+
+        return value
 
 
 class TicketSerializer(serializers.ModelSerializer):
@@ -112,47 +137,72 @@ class TicketSerializer(serializers.ModelSerializer):
             "id",
             "title",
             "description",
+
             "requester",
             "requester_name",
+
             "assigned_agent",
             "assigned_agent_name",
+
             "category",
             "category_name",
+
             "tags",
             "tags_data",
+
             "priority",
             "status",
+
             "sla_due_at",
             "first_response_at",
+
             "resolved_at",
             "closed_at",
+
             "created_at",
             "updated_at",
         ]
 
         read_only_fields = [
             "id",
+
             "requester",
             "requester_name",
+
+            "assigned_agent",
+
             "assigned_agent_name",
             "category_name",
             "tags_data",
+
+            "status",
+
             "sla_due_at",
             "first_response_at",
+
             "resolved_at",
             "closed_at",
+
             "created_at",
             "updated_at",
         ]
-        
 
     def create(self, validated_data):
+
         request = self.context["request"]
+
+        tags = validated_data.pop(
+            "tags",
+            [],
+        )
 
         ticket = Ticket.objects.create(
             requester=request.user,
             **validated_data,
         )
+
+        if tags:
+            ticket.tags.set(tags)
 
         TicketEvent.objects.create(
             ticket=ticket,
@@ -165,76 +215,15 @@ class TicketSerializer(serializers.ModelSerializer):
         )
 
         return ticket
-    
+
+
 class TicketAssignSerializer(serializers.Serializer):
+
     agent_id = serializers.IntegerField()
-    
+
+
 class TicketTransitionSerializer(serializers.Serializer):
+
     status = serializers.ChoiceField(
         choices=Ticket.Status.choices
     )
-    
-class CommentSerializer(serializers.ModelSerializer):
-
-    author_name = serializers.CharField(
-        source="author.username",
-        read_only=True,
-    )
-
-    class Meta:
-        model = Comment
-        fields = [
-            "id",
-            "ticket",
-            "author",
-            "author_name",
-            "body",
-            "is_internal",
-            "created_at",
-        ]
-
-        read_only_fields = [
-            "author",
-            "created_at",
-        ]
-
-
-class AttachmentSerializer(serializers.ModelSerializer):
-
-    class Meta:
-        model = Attachment
-        fields = [
-            "id",
-            "ticket",
-            "file",
-            "uploaded_by",
-            "uploaded_at",
-        ]
-
-        read_only_fields = [
-            "uploaded_by",
-            "uploaded_at",
-        ]
-
-    def validate_file(self, value):
-
-        max_size = 10 * 1024 * 1024
-
-        if value.size > max_size:
-            raise serializers.ValidationError(
-                "File size cannot exceed 10 MB."
-            )
-
-        allowed_types = [
-            "image/jpeg",
-            "image/png",
-            "application/pdf",
-            "text/plain",
-        ]
-
-        if value.content_type not in allowed_types:
-            raise serializers.ValidationError(
-                "Unsupported file type."
-            )
-
-        return value

@@ -14,7 +14,9 @@ from .models import (
     Ticket,
     TicketEvent,
 )
+
 from .permissions import IsAdminOrAgent
+
 from .serializer import (
     TicketSerializer,
     CommentSerializer,
@@ -32,6 +34,7 @@ class TicketViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+
         user = self.request.user
 
         if user.role == "ADMIN":
@@ -40,7 +43,6 @@ class TicketViewSet(viewsets.ModelViewSet):
                 "assigned_agent",
                 "category",
             )
-
 
         if user.role == "AGENT":
             return Ticket.objects.filter(
@@ -59,7 +61,6 @@ class TicketViewSet(viewsets.ModelViewSet):
             "assigned_agent",
             "category",
         )
-
 
     @action(
         detail=True,
@@ -80,7 +81,6 @@ class TicketViewSet(viewsets.ModelViewSet):
 
         agent_id = serializer.validated_data["agent_id"]
 
-        # Find agent
         try:
             agent = User.objects.get(
                 id=agent_id,
@@ -95,7 +95,6 @@ class TicketViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        
         old_agent = ticket.assigned_agent
 
         ticket.assigned_agent = agent
@@ -153,19 +152,15 @@ class TicketViewSet(viewsets.ModelViewSet):
         new_status = serializer.validated_data["status"]
 
         allowed_transitions = {
-
             Ticket.Status.OPEN: [
                 Ticket.Status.IN_PROGRESS
             ],
-
             Ticket.Status.IN_PROGRESS: [
                 Ticket.Status.RESOLVED
             ],
-
             Ticket.Status.RESOLVED: [
                 Ticket.Status.CLOSED
             ],
-
             Ticket.Status.CLOSED: [],
         }
 
@@ -173,7 +168,7 @@ class TicketViewSet(viewsets.ModelViewSet):
 
         if new_status not in allowed_transitions.get(
             current_status,
-            []
+            [],
         ):
             return Response(
                 {
@@ -185,7 +180,6 @@ class TicketViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-      
         ticket.status = new_status
 
         if new_status == Ticket.Status.RESOLVED:
@@ -217,7 +211,7 @@ class TicketViewSet(viewsets.ModelViewSet):
             ).data,
             status=status.HTTP_200_OK,
         )
-        
+
     @action(
         detail=True,
         methods=["get", "post"],
@@ -253,19 +247,21 @@ class TicketViewSet(viewsets.ModelViewSet):
             author=request.user,
         )
 
-     
         TicketEvent.objects.create(
             ticket=ticket,
             actor=request.user,
-            event_type="COMMENT_ADDED",
-            new_value=str(comment.id),
+            action="COMMENT_ADDED",
+            new_value={
+                "comment_id": comment.id
+            },
         )
 
         return Response(
-            CommentSerializer(comment).data,
+            CommentSerializer(
+                comment
+            ).data,
             status=status.HTTP_201_CREATED,
         )
-
 
     @action(
         detail=True,
@@ -275,7 +271,6 @@ class TicketViewSet(viewsets.ModelViewSet):
 
         ticket = self.get_object()
 
-       
         serializer = AttachmentSerializer(
             data=request.data
         )
@@ -284,17 +279,24 @@ class TicketViewSet(viewsets.ModelViewSet):
             raise_exception=True
         )
 
+        uploaded_file = serializer.validated_data["file"]
+
         attachment = serializer.save(
             ticket=ticket,
             uploaded_by=request.user,
+            original_filename=uploaded_file.name,
+            file_size=uploaded_file.size,
+            content_type=uploaded_file.content_type,
         )
 
-     
         TicketEvent.objects.create(
             ticket=ticket,
             actor=request.user,
-            event_type="ATTACHMENT_ADDED",
-            new_value=str(attachment.id),
+            action="ATTACHMENT_ADDED",
+            new_value={
+                "attachment_id": attachment.id,
+                "filename": attachment.original_filename,
+            },
         )
 
         return Response(
@@ -326,20 +328,12 @@ class CommentViewSet(viewsets.ModelViewSet):
 class CategoryViewSet(viewsets.ModelViewSet):
 
     queryset = Category.objects.all()
-
     serializer_class = CategorySerializer
-
-    permission_classes = [
-        IsAuthenticated
-    ]
+    permission_classes = [IsAuthenticated]
 
 
 class TagViewSet(viewsets.ModelViewSet):
 
     queryset = Tag.objects.all()
-
     serializer_class = TagSerializer
-
-    permission_classes = [
-        IsAuthenticated
-    ]
+    permission_classes = [IsAuthenticated]
