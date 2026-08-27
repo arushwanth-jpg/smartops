@@ -19,10 +19,13 @@ from django.urls import include, path
 from django.conf import settings
 from django.conf.urls.static import static
 
+from smartops import kb
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     path( "api/v1/auth/",include("users.urls"),),
     path( "api/v1/tickets/",include("tickets.urls"),),
+    path("api/v1/",include(kb.urls)),
 ]
 
 
