@@ -141,6 +141,7 @@ class KBArticleVersion(models.Model):
 
 
 
+
 class TicketKBLink(models.Model):
 
     ticket = models.ForeignKey(

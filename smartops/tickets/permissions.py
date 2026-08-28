@@ -2,6 +2,7 @@ from rest_framework.permissions import BasePermission
 
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 class IsTicketOwnerOrStaff(BasePermission):
 
     def has_object_permission(
@@ -23,6 +24,8 @@ class IsTicketOwnerOrStaff(BasePermission):
 
         return False
 =======
+=======
+>>>>>>> 6472197e00068fd588ab2f80bfc613e308479f14
 class IsAdmin(BasePermission):
     """
     Only administrators can perform this action.
@@ -68,5 +71,9 @@ class IsAdminOrAgent(BasePermission):
         return (
             request.user.is_authenticated
             and request.user.role in ["ADMIN", "AGENT"]
+<<<<<<< HEAD
+        )
+>>>>>>> 6472197e00068fd588ab2f80bfc613e308479f14
+=======
         )
 >>>>>>> 6472197e00068fd588ab2f80bfc613e308479f14
