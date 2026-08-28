@@ -19,5 +19,4 @@ router.register(
     basename="ticket-kb-link",
 )
 
-
 urlpatterns = router.urls

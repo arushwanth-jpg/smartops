@@ -10,7 +10,6 @@ from .models import (
 )
 
 
-
 @admin.register(KBArticle)
 class KBArticleAdmin(admin.ModelAdmin):
 

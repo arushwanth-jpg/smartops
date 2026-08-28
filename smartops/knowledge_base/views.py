@@ -19,7 +19,6 @@ from .serializers import (
 )
 
 
-
 class KBArticleViewSet(viewsets.ModelViewSet):
 
     queryset = KBArticle.objects.all()
