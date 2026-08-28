@@ -1,4 +1,4 @@
-from rest_framework import serializers
+from rest_framework import serializers  # pyright: ignore[reportMissingImports]
 
 from .models import (
     Attachment,
@@ -165,3 +165,76 @@ class TicketSerializer(serializers.ModelSerializer):
         )
 
         return ticket
+    
+class TicketAssignSerializer(serializers.Serializer):
+    agent_id = serializers.IntegerField()
+    
+class TicketTransitionSerializer(serializers.Serializer):
+    status = serializers.ChoiceField(
+        choices=Ticket.Status.choices
+    )
+    
+class CommentSerializer(serializers.ModelSerializer):
+
+    author_name = serializers.CharField(
+        source="author.username",
+        read_only=True,
+    )
+
+    class Meta:
+        model = Comment
+        fields = [
+            "id",
+            "ticket",
+            "author",
+            "author_name",
+            "body",
+            "is_internal",
+            "created_at",
+        ]
+
+        read_only_fields = [
+            "author",
+            "created_at",
+        ]
+
+
+class AttachmentSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Attachment
+        fields = [
+            "id",
+            "ticket",
+            "file",
+            "uploaded_by",
+            "uploaded_at",
+        ]
+
+        read_only_fields = [
+            "uploaded_by",
+            "uploaded_at",
+        ]
+
+    def validate_file(self, value):
+
+        max_size = 10 * 1024 * 1024
+
+        if value.size > max_size:
+            raise serializers.ValidationError(
+                "File size cannot exceed 10 MB."
+            )
+
+        allowed_types = [
+            "image/jpeg",
+            "image/png",
+            "application/pdf",
+            "text/plain",
+        ]
+
+        if value.content_type not in allowed_types:
+            raise serializers.ValidationError(
+                "Unsupported file type."
+            )
+
+        return value
