@@ -139,6 +139,7 @@ class KBArticleVersion(models.Model):
         return f"{self.article.title} - v{self.version_number}"
 
 
+
 class TicketKBLink(models.Model):
 
     ticket = models.ForeignKey(

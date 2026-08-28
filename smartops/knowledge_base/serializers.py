@@ -10,6 +10,7 @@ from .models import (
 )
 
 
+
 class KBArticleSerializer(serializers.ModelSerializer):
 
     rendered_content = serializers.SerializerMethodField()
