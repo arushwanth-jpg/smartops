@@ -26,7 +26,7 @@ urlpatterns = [
 
     path("api/v1/tickets/", include("tickets.urls")),
 
-    path("api/v1/", include("kb.urls")),
+   
 ]
 
 if settings.DEBUG:
