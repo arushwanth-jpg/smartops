@@ -43,9 +43,9 @@ INSTALLED_APPS = [
 
     "users",
     "tickets",
-    "kb",
+    "knowledge_base",
     "ai",
-    "integerations",
+    "integrations",
     "django_filters",
 ]
 
