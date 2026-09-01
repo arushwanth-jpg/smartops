@@ -25,6 +25,7 @@ urlpatterns = [
     path("api/v1/auth/", include("users.urls")),
 
     path("api/v1/tickets/", include("tickets.urls")),
+    path("api/kb/",include("knowledge_base.urls"),),
 
    
 ]
