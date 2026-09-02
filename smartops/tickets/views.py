@@ -9,6 +9,7 @@ from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 
 from users.models import User
+from integrations.services import trigger_webhook
 
 from .models import (
     Category,
@@ -63,9 +64,7 @@ class TicketViewSet(viewsets.ModelViewSet):
         "priority",
     ]
 
-    ordering = [
-        "-created_at"
-    ]
+    ordering = ["-created_at"]
 
     def get_queryset(self):
 
@@ -83,7 +82,9 @@ class TicketViewSet(viewsets.ModelViewSet):
             query = Q(assigned_agent=user)
 
             if user.team:
-                query |= Q(requester__team=user.team)
+                query |= Q(
+                    requester__team=user.team
+                )
 
             return Ticket.objects.filter(
                 query
@@ -118,7 +119,9 @@ class TicketViewSet(viewsets.ModelViewSet):
             raise_exception=True
         )
 
-        agent_id = serializer.validated_data["agent_id"]
+        agent_id = serializer.validated_data[
+            "agent_id"
+        ]
 
         try:
             agent = User.objects.get(
@@ -161,6 +164,20 @@ class TicketViewSet(viewsets.ModelViewSet):
             },
         )
 
+        trigger_webhook(
+            "TICKET_ASSIGNED",
+            {
+                "ticket": {
+                    "id": ticket.id,
+                    "title": ticket.title,
+                    "status": ticket.status,
+                    "priority": ticket.priority,
+                    "assigned_agent_id": agent.id,
+                    "assigned_agent": agent.username,
+                }
+            },
+        )
+
         return Response(
             TicketSerializer(
                 ticket,
@@ -188,7 +205,9 @@ class TicketViewSet(viewsets.ModelViewSet):
             raise_exception=True
         )
 
-        new_status = serializer.validated_data["status"]
+        new_status = serializer.validated_data[
+            "status"
+        ]
 
         allowed_transitions = {
             Ticket.Status.OPEN: [
@@ -238,6 +257,19 @@ class TicketViewSet(viewsets.ModelViewSet):
             },
             new_value={
                 "status": new_status
+            },
+        )
+
+        trigger_webhook(
+            "TICKET_STATUS_CHANGED",
+            {
+                "ticket": {
+                    "id": ticket.id,
+                    "title": ticket.title,
+                    "priority": ticket.priority,
+                    "old_status": current_status,
+                    "status": new_status,
+                }
             },
         )
 
@@ -316,6 +348,22 @@ class TicketViewSet(viewsets.ModelViewSet):
             },
         )
 
+        trigger_webhook(
+            "COMMENT_ADDED",
+            {
+                "ticket": {
+                    "id": ticket.id,
+                    "title": ticket.title,
+                },
+                "comment": {
+                    "id": comment.id,
+                    "content": comment.content,
+                    "comment_type": comment.comment_type,
+                    "author_id": request.user.id,
+                },
+            },
+        )
+
         return Response(
             CommentSerializer(
                 comment
@@ -339,7 +387,9 @@ class TicketViewSet(viewsets.ModelViewSet):
             raise_exception=True
         )
 
-        uploaded_file = serializer.validated_data["file"]
+        uploaded_file = serializer.validated_data[
+            "file"
+        ]
 
         attachment = serializer.save(
             ticket=ticket,
@@ -356,6 +406,22 @@ class TicketViewSet(viewsets.ModelViewSet):
             new_value={
                 "attachment_id": attachment.id,
                 "filename": attachment.original_filename,
+            },
+        )
+
+        trigger_webhook(
+            "ATTACHMENT_ADDED",
+            {
+                "ticket": {
+                    "id": ticket.id,
+                    "title": ticket.title,
+                },
+                "attachment": {
+                    "id": attachment.id,
+                    "filename": attachment.original_filename,
+                    "file_size": attachment.file_size,
+                    "content_type": attachment.content_type,
+                },
             },
         )
 
