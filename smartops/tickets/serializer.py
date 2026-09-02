@@ -1,5 +1,6 @@
 from rest_framework import serializers
-
+from  integrations.tasks import send_webhook
+from integrations.models import webhookendpoint
 from .services import calculate_sla_due_at
 
 from .models import (
@@ -203,10 +204,7 @@ class TicketSerializer(serializers.ModelSerializer):
         ]
 
     def create(self, validated_data):
-
-        request = self.context[
-            "request"
-        ]
+        request = self.context["request"]
 
         tags = validated_data.pop(
             "tags",
@@ -243,6 +241,31 @@ class TicketSerializer(serializers.ModelSerializer):
                 ),
             },
         )
+
+        webhook_payload = {
+            "event": "TICKET_CREATED",
+            "ticket": {
+                "id": ticket.id,
+                "title": ticket.title,
+                "priority": ticket.priority,
+                "status": ticket.status,
+                "requester_id": ticket.requester_id,
+            },
+        }
+
+        endpoints = (
+            webhookendpoint.objects
+            .filter(
+                is_active=True
+            )
+        )
+
+        for endpoint in endpoints:
+            send_webhook.delay(
+                endpoint.id,
+                "TICKET_CREATED",
+                webhook_payload,
+            )
 
         return ticket
 
